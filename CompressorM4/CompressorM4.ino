@@ -7,8 +7,10 @@ ModbusMaster mbRTU;
 void preTransmission() {;}
 void postTransmission() {;}
 bool tog = false;
-String msg = "";
-float rhe28[22] = {0};
+String RHE28msg = "";
+String REDmsg = "";
+unsigned long timer = 0;
+float rhe28[4] = {0}; //22
 float red[4] = {0};
 void setup() {
   Serial.begin(9600);
@@ -19,30 +21,41 @@ void setup() {
 }
 
 void loop() {
+  if(!timer){timer = millis();}
+  if(millis() - timer > 1000 && timer){
+    RPC.println(RHE28msg + "$" + REDmsg);
+    timer = millis();
+  }
+
+
   if(!tog){
-    msg = "{RHE28:";
+    RHE28msg = "RHE28:";
     uint8_t result = mbRTU.readInputRegisters(RHE28_ADDR,0x5000,44);
     if (result == mbRTU.ku8MBSuccess) {
-      rhe28[0] = word2Float(mbRTU.getResponseBuffer(0),mbRTU.getResponseBuffer(1),true);
-      rhe28[1] = word2Float(mbRTU.getResponseBuffer(2),mbRTU.getResponseBuffer(3),true);
-      rhe28[2] = word2Float(mbRTU.getResponseBuffer(4),mbRTU.getResponseBuffer(5),true);
-      rhe28[3] = word2Float(mbRTU.getResponseBuffer(6),mbRTU.getResponseBuffer(7),true);
-      for(int i = 4; i < 22; i++){
-        rhe28[i] = word2Float(mbRTU.getResponseBuffer(i*2),mbRTU.getResponseBuffer(i*2+1),true);
-      }
+      // rhe28[0] = word2Float(mbRTU.getResponseBuffer(0),mbRTU.getResponseBuffer(1),true);
+      // rhe28[1] = word2Float(mbRTU.getResponseBuffer(2),mbRTU.getResponseBuffer(3),true);
+      // rhe28[2] = word2Float(mbRTU.getResponseBuffer(4),mbRTU.getResponseBuffer(5),true);
+      // rhe28[3] = word2Float(mbRTU.getResponseBuffer(6),mbRTU.getResponseBuffer(7),true);
+      // for(int i = 4; i < 22; i++){
+      //   rhe28[i] = word2Float(mbRTU.getResponseBuffer(i*2),mbRTU.getResponseBuffer(i*2+1),true);
+      // }
+      rhe28[0] = word2Float(mbRTU.getResponseBuffer(10),mbRTU.getResponseBuffer(11),true);
+      rhe28[1] = word2Float(mbRTU.getResponseBuffer(30),mbRTU.getResponseBuffer(31),true);
+      rhe28[2] = word2Float(mbRTU.getResponseBuffer(32),mbRTU.getResponseBuffer(33),true);
+      rhe28[3] = word2Float(mbRTU.getResponseBuffer(18),mbRTU.getResponseBuffer(19),true);
+
       mbRTU.clearResponseBuffer();
       for(int i : rhe28){
-        msg = msg + String(rhe28[i]) + ",";
+        RHE28msg = RHE28msg + String(rhe28[i]) + ",";
       }
-      msg[msg.length()-1] = '}';
-      RPC.println(msg);
+      RHE28msg[RHE28msg.length()-1] = '\0';
     }
-    else{RPC.print(msg);RPC.print(result,HEX);RPC.println("}");}
+    else{RHE28msg = RHE28msg + "ERROR:" + String(result,HEX);}
     delay(500);
     tog = 1;
   }
   else{
-    msg = "{RED:";
+    REDmsg = "RED:";
     uint8_t result = mbRTU.readHoldingRegisters(RED_ADDR,0,8);
     if (result == mbRTU.ku8MBSuccess) {
       red[0] = word2Float(mbRTU.getResponseBuffer(0),mbRTU.getResponseBuffer(1),false);
@@ -51,12 +64,11 @@ void loop() {
       red[3] = word2Float(mbRTU.getResponseBuffer(6),mbRTU.getResponseBuffer(7),false);
       mbRTU.clearResponseBuffer();
       for(int i : red){
-        msg = msg + String(red[i]) + ",";
+        REDmsg = REDmsg + String(red[i]) + ",";
       }
-      msg[msg.length()-1] = '}';
-      RPC.println(msg);
+      REDmsg[REDmsg.length()-1] = '\0';
     }
-    else{RPC.print(msg);RPC.print(result,HEX);RPC.println("}");}
+    else{REDmsg = REDmsg + "ERROR:" + String(result,HEX);}
     delay(500);
     tog = 0;
   }
